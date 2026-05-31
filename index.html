@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Focus Guard — Hackathon Mode</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Bebas+Neue&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --green:  #00ff88;
+    --yellow: #ffe033;
+    --red:    #ff3355;
+    --blue:   #00cfff;
+    --bg:     #040d08;
+    --panel:  #080f0a;
+    --border: #0d2018;
+    --text:   #88ccaa;
+    --dim:    #224433;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    font-family: 'Share Tech Mono', monospace;
+    min-height: 100vh;
+    overflow-x: hidden;
+    color: var(--text);
+  }
+
+  /* animated grid bg */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(rgba(0,255,136,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,255,136,0.04) 1px, transparent 1px);
+    background-size: 48px 48px;
+    animation: gridMove 20s linear infinite;
+    pointer-events: none; z-index: 0;
+  }
+  @keyframes gridMove { from{background-position:0 0} to{background-position:48px 48px} }
+
+  /* scanlines */
+  body::after {
+    content: '';
+    position: fixed; inset: 0;
+    background: repeating-linear-gradient(
+      to bottom,
+      transparent 0px, transparent 3px,
+      rgba(0,0,0,0.07) 3px, rgba(0,0,0,0.07) 4px
+    );
+    pointer-events: none; z-index: 999;
+  }
+
+  .page { position: relative; z-index: 1; max-width: 900px; margin: 0 auto; padding: 28px 20px; }
+
+  /* ── HEADER ── */
+  .header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 28px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .logo {
+    font-family: 'Orbitron', monospace;
+    font-weight: 900;
+    font-size: 1.6rem;
+    letter-spacing: 6px;
+    color: var(--green);
+    text-shadow: 0 0 24px rgba(0,255,136,0.5), 0 0 60px rgba(0,255,136,0.2);
+  }
+  .logo span { color: #336644; }
+  .header-right { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+  .live-pill {
+    display: flex; align-items: center; gap: 6px;
+    border: 1px solid var(--green);
+    padding: 4px 12px; border-radius: 20px;
+    font-size: 0.65rem; letter-spacing: 2px; color: var(--green);
+    box-shadow: 0 0 10px rgba(0,255,136,0.15);
+  }
+  .live-dot { width: 7px; height: 7px; background: var(--green); border-radius: 50%; animation: blink 1s infinite; }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.1} }
+  .sync-time { font-size: 0.6rem; color: var(--dim); }
+
+  /* ── ROAST BANNER ── */
+  .roast-banner {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--yellow);
+    border-radius: 4px;
+    padding: 18px 24px;
+    margin-bottom: 20px;
+    display: flex; align-items: center; gap: 18px;
+    box-shadow: 0 0 30px rgba(0,255,136,0.04), inset 0 0 40px rgba(0,0,0,0.3);
+    transition: border-left-color 0.6s;
+    min-height: 80px;
+  }
+  .roast-emoji { font-size: 2.8rem; flex-shrink: 0; filter: drop-shadow(0 0 8px rgba(255,255,255,0.2)); }
+  .roast-content { flex: 1; }
+  .roast-tag { font-size: 0.6rem; letter-spacing: 3px; color: var(--dim); margin-bottom: 4px; }
+  .roast-msg { font-size: 1.05rem; color: var(--yellow); line-height: 1.4; transition: color 0.6s; }
+  .behavior-chip {
+    font-family: 'Orbitron', monospace;
+    font-size: 0.7rem; font-weight: 700;
+    padding: 4px 14px; border-radius: 2px;
+    background: rgba(0,255,136,0.08);
+    border: 1px solid var(--green);
+    color: var(--green);
+    letter-spacing: 2px;
+    white-space: nowrap;
+    transition: all 0.6s;
+  }
+
+  /* ── FOCUS SCORE ── */
+  .score-row {
+    display: flex; align-items: center; gap: 20px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 18px 24px;
+    margin-bottom: 20px;
+  }
+  .score-num {
+    font-family: 'Bebas Neue', cursive;
+    font-size: 4rem; line-height: 1;
+    color: var(--green);
+    text-shadow: 0 0 30px rgba(0,255,136,0.6);
+    transition: color 0.6s, text-shadow 0.6s;
+    min-width: 90px;
+  }
+  .score-denom { font-size: 1.2rem; color: var(--dim); }
+  .score-bar-wrap { flex: 1; }
+  .score-bar-label {
+    display: flex; justify-content: space-between;
+    font-size: 0.6rem; letter-spacing: 2px; color: var(--dim);
+    margin-bottom: 8px;
+  }
+  .score-bar-track {
+    height: 14px; background: #050f08;
+    border: 1px solid var(--border); border-radius: 2px; overflow: hidden;
+    position: relative;
+  }
+  .score-bar-fill {
+    height: 100%; background: var(--green);
+    box-shadow: 0 0 14px var(--green);
+    border-radius: 2px;
+    transition: width 1s cubic-bezier(.4,0,.2,1), background 0.6s, box-shadow 0.6s;
+    position: relative;
+  }
+  .score-bar-fill::after {
+    content: '';
+    position: absolute; right: 0; top: 0; bottom: 0; width: 3px;
+    background: white; opacity: 0.4;
+    animation: pulse 1.2s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:0.4} 50%{opacity:1} }
+
+  /* ── STATS GRID ── */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+    margin-bottom: 20px;
+  }
+  .stat-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 18px 16px;
+    text-align: center;
+    position: relative; overflow: hidden;
+    transition: border-color 0.3s, transform 0.2s;
+  }
+  .stat-card:hover { border-color: var(--dim); transform: translateY(-2px); }
+  .stat-card::before {
+    content: '';
+    position: absolute; bottom: 0; left: 0; right: 0; height: 2px;
+    background: var(--green); opacity: 0.3;
+  }
+  .stat-icon { font-size: 1.3rem; margin-bottom: 8px; }
+  .stat-val {
+    font-family: 'Bebas Neue', cursive;
+    font-size: 2rem; line-height: 1;
+    color: var(--green);
+    transition: color 0.6s;
+  }
+  .stat-key { font-size: 0.58rem; letter-spacing: 2px; color: var(--dim); margin-top: 5px; text-transform: uppercase; }
+
+  /* ── REPORT BOX ── */
+  .report-box {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 20px 24px;
+    margin-bottom: 20px;
+    font-size: 0.85rem;
+    line-height: 2;
+  }
+  .report-title {
+    font-family: 'Orbitron', monospace;
+    font-size: 0.65rem; letter-spacing: 3px;
+    color: var(--dim); margin-bottom: 14px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .report-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+  .report-row { display: flex; justify-content: space-between; align-items: center; padding: 2px 0; border-bottom: 1px solid rgba(13,32,24,0.6); }
+  .report-row:last-child { border-bottom: none; }
+  .report-row .lbl { color: var(--dim); }
+  .report-row .val { color: var(--green); font-weight: bold; transition: color 0.6s; }
+
+  /* ── VERDICT ── */
+  .verdict-box {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 16px 24px;
+    display: flex; align-items: center; gap: 16px;
+    margin-bottom: 20px;
+  }
+  .verdict-label { font-size: 0.6rem; letter-spacing: 3px; color: var(--dim); margin-bottom: 4px; }
+  .verdict-text {
+    font-family: 'Orbitron', monospace;
+    font-size: 0.9rem; font-weight: 700;
+    letter-spacing: 1px;
+    color: var(--green);
+    transition: color 0.6s;
+  }
+
+  /* ── FOOTER ── */
+  footer {
+    text-align: center; font-size: 0.6rem;
+    color: var(--dim); letter-spacing: 2px;
+    border-top: 1px solid var(--border); padding-top: 16px;
+  }
+
+  @media(max-width:600px) {
+    .stats-grid { grid-template-columns: 1fr 1fr; }
+    .logo { font-size: 1.1rem; }
+    .score-num { font-size: 2.8rem; }
+    .roast-banner { flex-wrap: wrap; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- HEADER -->
+  <div class="header">
+    <div class="logo">FOCUS<span>GUARD</span></div>
+    <div class="header-right">
+      <div class="live-pill"><div class="live-dot"></div>LIVE SESSION</div>
+      <div class="sync-time" id="sync-time">SYNCING...</div>
+    </div>
+  </div>
+
+  <!-- ROAST BANNER -->
+  <div class="roast-banner" id="roast-banner">
+    <div class="roast-emoji" id="roast-emoji">🚀</div>
+    <div class="roast-content">
+      <div class="roast-tag">// CURRENT ROAST</div>
+      <div class="roast-msg" id="roast-msg">Waiting for Focus Guard to start...</div>
+    </div>
+    <div class="behavior-chip" id="behavior-chip">STANDBY</div>
+  </div>
+
+  <!-- FOCUS SCORE BAR -->
+  <div class="score-row">
+    <div>
+      <div style="font-size:0.6rem;letter-spacing:3px;color:var(--dim);margin-bottom:4px">FOCUS SCORE</div>
+      <div><span class="score-num" id="score-num">—</span><span class="score-denom"> /10</span></div>
+    </div>
+    <div class="score-bar-wrap">
+      <div class="score-bar-label">
+        <span>FOCUS METER</span><span id="score-pct">0%</span>
+      </div>
+      <div class="score-bar-track">
+        <div class="score-bar-fill" id="bar-fill" style="width:0%"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STATS GRID -->
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-icon">⏱️</div>
+      <div class="stat-val" id="stat-time" style="color:var(--blue)">00:00</div>
+      <div class="stat-key">Session Time</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon">🎞️</div>
+      <div class="stat-val" id="stat-frames">—</div>
+      <div class="stat-key">Total Frames</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon">🔥</div>
+      <div class="stat-val" id="stat-focused" style="color:var(--green)">—</div>
+      <div class="stat-key">Focused Frames</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon">💥</div>
+      <div class="stat-val" id="stat-dist" style="color:var(--red)">—</div>
+      <div class="stat-key">Distractions</div>
+    </div>
+  </div>
+
+  <!-- SESSION REPORT -->
+  <div class="report-box">
+    <div class="report-title">SESSION REPORT</div>
+    <div class="report-row"><span class="lbl">Session length</span><span class="val" id="rep-time">--m --s</span></div>
+    <div class="report-row"><span class="lbl">Total frames</span><span class="val" id="rep-frames">—</span></div>
+    <div class="report-row"><span class="lbl">Focused frames</span><span class="val" id="rep-focused">—</span></div>
+    <div class="report-row"><span class="lbl">Distractions</span><span class="val" id="rep-dist">—</span></div>
+    <div class="report-row"><span class="lbl">Avg focus score</span><span class="val" id="rep-score">— / 10</span></div>
+  </div>
+
+  <!-- VERDICT -->
+  <div class="verdict-box">
+    <div style="font-size:2rem" id="verdict-emoji">🏆</div>
+    <div>
+      <div class="verdict-label">VERDICT</div>
+      <div class="verdict-text" id="verdict-text">Awaiting session data...</div>
+    </div>
+  </div>
+
+  <footer>FOCUS GUARD &nbsp;|&nbsp; HACKATHON MODE &nbsp;|&nbsp; GLITCH SQUAD</footer>
+</div>
+
+<script>
+  function fmtTime(sec) {
+    const m = Math.floor(sec/60).toString().padStart(2,'0');
+    const s = (sec%60).toString().padStart(2,'0');
+    return m + 'm ' + s + 's';
+  }
+  function fmtTimeMM(sec) {
+    const m = Math.floor(sec/60).toString().padStart(2,'0');
+    const s = (sec%60).toString().padStart(2,'0');
+    return m + ':' + s;
+  }
+  function col(score) {
+    if (score >= 7) return 'var(--green)';
+    if (score >= 4) return 'var(--yellow)';
+    return 'var(--red)';
+  }
+
+  async function poll() {
+    try {
+      const res = await fetch('/stats');
+      if (!res.ok) throw new Error();
+      const d = await res.json();
+      if (d.error) return;
+
+      const c = col(d.score);
+      const pct = ((d.score/10)*100).toFixed(0);
+      const total = (d.focused||0) + (d.distractions||0);
+
+      // header
+      document.getElementById('sync-time').textContent = 'LAST SYNC ' + new Date().toLocaleTimeString();
+
+      // roast banner
+      document.getElementById('roast-emoji').textContent = d.emoji || '🤖';
+      document.getElementById('roast-msg').textContent = d.roast || '—';
+      document.getElementById('roast-msg').style.color = c;
+      document.getElementById('behavior-chip').textContent = (d.behavior||'—').replace(/[^\w\s]/g,'').trim().toUpperCase();
+      document.getElementById('behavior-chip').style.borderColor = c;
+      document.getElementById('behavior-chip').style.color = c;
+      document.getElementById('roast-banner').style.borderLeftColor = c;
+
+      // score
+      document.getElementById('score-num').textContent = d.score ?? '—';
+      document.getElementById('score-num').style.color = c;
+      document.getElementById('score-num').style.textShadow = `0 0 30px ${c}`;
+      document.getElementById('score-pct').textContent = pct + '%';
+      document.getElementById('bar-fill').style.width = pct + '%';
+      document.getElementById('bar-fill').style.background = c;
+      document.getElementById('bar-fill').style.boxShadow = `0 0 14px ${c}`;
+
+      // stats grid
+      document.getElementById('stat-time').textContent = fmtTimeMM(d.elapsed||0);
+      document.getElementById('stat-frames').textContent = total;
+      document.getElementById('stat-focused').textContent = d.focused ?? '—';
+      document.getElementById('stat-dist').textContent = d.distractions ?? '—';
+
+      // report
+      document.getElementById('rep-time').textContent = fmtTime(d.elapsed||0);
+      document.getElementById('rep-frames').textContent = total;
+      document.getElementById('rep-focused').textContent = d.focused ?? '—';
+      document.getElementById('rep-dist').textContent = d.distractions ?? '—';
+      document.getElementById('rep-score').textContent = (d.score ?? '—') + ' / 10';
+
+      // verdict
+      let vText, vEmoji;
+      if ((d.distractions||0) > (d.focused||0)) {
+        vText = 'Bro was distracted more than focused';
+        vEmoji = '💀';
+      } else if (d.score >= 7) {
+        vText = 'Beast mode. Actual focus achieved';
+        vEmoji = '🔥';
+      } else {
+        vText = 'Not bad — you survived the roast';
+        vEmoji = '😎';
+      }
+      document.getElementById('verdict-text').textContent = vText;
+      document.getElementById('verdict-text').style.color = c;
+      document.getElementById('verdict-emoji').textContent = vEmoji;
+
+    } catch(e) {
+      document.getElementById('sync-time').textContent = 'WAITING FOR SESSION...';
+    }
+  }
+
+  poll();
+  setInterval(poll, 1000);
+</script>
+</body>
+</html>
